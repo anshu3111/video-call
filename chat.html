@@ -8,17 +8,17 @@
 </head>
 <body>
     <h2>Agora Video Call</h2>
-
+    
     <div>
-        <h3>Your Video</h3>
-        <video id="local-video" autoplay playsinline muted style="width: 300px; height: 200px; background: black;"></video>
+        <h3>Local Video (Your Camera)</h3>
+        <div id="local-video" style="width: 400px; height: 300px; background: black;"></div>
     </div>
-
+    
     <div>
-        <h3>Remote Users</h3>
-        <div id="remote-video-container" style="display: flex; flex-wrap: wrap;"></div>
+        <h3>Remote Videos (Other Users)</h3>
+        <div id="remote-video-container"></div>
     </div>
-
+    
     <button id="startBtn" onclick="startCall()">Start Call</button>
 
     <script>
@@ -27,7 +27,7 @@
         const CHANNEL_NAME = "Rahul";
 
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-
+        
         let localTracks = {
             videoTrack: null,
             audioTrack: null
@@ -37,73 +37,70 @@
         async function startCall() {
             try {
                 document.getElementById("startBtn").disabled = true;
-
-                // ✅ Join the channel
                 const uid = await client.join(APP_ID, CHANNEL_NAME, TOKEN, null);
 
-                // ✅ Request Camera & Mic Permissions
                 [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
 
-                // ✅ Play Local Video in <video> tag
-                const localVideoElement = document.getElementById("local-video");
-                localVideoElement.srcObject = new MediaStream([localTracks.videoTrack.getMediaStreamTrack()]);
+                if (!localTracks.videoTrack) {
+                    alert("Camera access denied! Please allow camera permission.");
+                    return;
+                }
 
-                // ✅ Publish to Channel
+                localTracks.videoTrack.play("local-video");
                 await client.publish([localTracks.audioTrack, localTracks.videoTrack]);
-
                 console.log("Local stream published.");
 
-                // ✅ Handle Remote Users Joining
                 client.on("user-published", async (user, mediaType) => {
                     await client.subscribe(user, mediaType);
-                    console.log("User Published:", user.uid);
-
+                    
                     if (mediaType === "video") {
-                        addRemoteUser(user);
+                        const remoteContainer = document.getElementById("remote-video-container");
+                        let remoteDiv = document.getElementById(`remote-user-${user.uid}`);
+                        if (!remoteDiv) {
+                            remoteDiv = document.createElement("div");
+                            remoteDiv.id = `remote-user-${user.uid}`;
+                            remoteDiv.style.width = "400px";
+                            remoteDiv.style.height = "300px";
+                            remoteDiv.style.background = "gray";
+                            remoteContainer.appendChild(remoteDiv);
+                        } else {
+                            remoteDiv.innerHTML = "";
+                        }
+                        user.videoTrack.play(remoteDiv);
                     }
-
                     if (mediaType === "audio") {
                         user.audioTrack.play();
                     }
                 });
 
-                // ✅ Handle User Leaving
+                client.on("user-joined", async (user) => {
+                    console.log("New user joined:", user.uid);
+                    if (user.hasVideo) {
+                        const remoteContainer = document.getElementById("remote-video-container");
+                        let remoteDiv = document.getElementById(`remote-user-${user.uid}`);
+                        if (!remoteDiv) {
+                            remoteDiv = document.createElement("div");
+                            remoteDiv.id = `remote-user-${user.uid}`;
+                            remoteDiv.style.width = "400px";
+                            remoteDiv.style.height = "300px";
+                            remoteDiv.style.background = "gray";
+                            remoteContainer.appendChild(remoteDiv);
+                        }
+                        user.videoTrack.play(remoteDiv);
+                    }
+                });
+
                 client.on("user-unpublished", (user) => {
-                    console.log("User Left:", user.uid);
-                    removeRemoteUser(user.uid);
+                    console.log("Remote user left:", user.uid);
+                    const remoteContainer = document.getElementById(`remote-user-${user.uid}`);
+                    if (remoteContainer) {
+                        remoteContainer.remove();
+                    }
                 });
 
             } catch (error) {
                 console.error("Error:", error);
                 alert("Error: " + error.message);
-            }
-        }
-
-        function addRemoteUser(user) {
-            if (!remoteUsers[user.uid]) {
-                remoteUsers[user.uid] = user;
-
-                // ✅ Create Video Element
-                const remoteContainer = document.createElement("video");
-                remoteContainer.id = `remote-user-${user.uid}`;
-                remoteContainer.style.width = "300px";
-                remoteContainer.style.height = "200px";
-                remoteContainer.style.margin = "10px";
-                remoteContainer.autoplay = true;
-                remoteContainer.playsInline = true;
-
-                document.getElementById("remote-video-container").appendChild(remoteContainer);
-
-                // ✅ Play Remote Video
-                user.videoTrack.play(remoteContainer);
-            }
-        }
-
-        function removeRemoteUser(uid) {
-            delete remoteUsers[uid];
-            const remoteContainer = document.getElementById(`remote-user-${uid}`);
-            if (remoteContainer) {
-                remoteContainer.remove();
             }
         }
     </script>
