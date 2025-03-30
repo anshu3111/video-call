@@ -57,10 +57,14 @@
 
                 client.on("user-joined", async (user) => {
                     console.log("User joined:", user.uid);
-                    if (!remoteUsers[user.uid]) {
-                        remoteUsers[user.uid] = user;
-                        await client.subscribe(user, "video");
-                        addRemoteUser(user);
+                    remoteUsers[user.uid] = user;
+
+                    // Subscribe and display existing remote users' videos
+                    for (const uid in remoteUsers) {
+                        if (!document.getElementById(`remote-user-${uid}`)) {
+                            await client.subscribe(remoteUsers[uid], "video");
+                            addRemoteUser(remoteUsers[uid]);
+                        }
                     }
                 });
 
@@ -71,13 +75,6 @@
                 client.on("user-left", (user) => {
                     removeRemoteUser(user);
                 });
-
-                // Fetch and display existing users' video for newly joined user
-                for (const uid in remoteUsers) {
-                    if (remoteUsers[uid].videoTrack) {
-                        addRemoteUser(remoteUsers[uid]);
-                    }
-                }
             } catch (error) {
                 console.error("Error:", error);
                 alert("Error: " + error.message);
