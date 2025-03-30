@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agora Video Call</title>
+    <script src="https://cdn.agora.io/sdk/release/AgoraRTC_N.js"></script>
+</head>
+<body>
+    <h2>Agora Video Call</h2>
+    
+    <div>
+        <h3>Local Video (Your Camera)</h3>
+        <div id="local-video" style="width: 400px; height: 300px; background: black;"></div>
+    </div>
+    
+    <div>
+        <h3>Remote Videos (Other Users)</h3>
+        <div id="remote-video-container"></div>
+    </div>
+    
+    <button id="startBtn" onclick="startCall()">Start Call</button>
+
+    <script>
+        const APP_ID = "33d99b3ec6ec4c36a90a3dac6abce480";
+        const TOKEN = "007eJxTYCjZWPl8G3PEvNlXkxUlFgSvKza4+Csr+ssqjrOsYv3urxQUGIyNUywtk4xTk81Sk02Sjc0SLQ0SjVMSk80Sk5JTTSwMbka9TG8IZGSI1b3GyMgAgSA+K0NQYkZpDgMDAJ6OIMo=";
+        const CHANNEL_NAME = "Rahul";
+
+        const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+        let localTracks = {
+            videoTrack: null,
+            audioTrack: null
+        };
+        let remoteUsers = {};
+
+        async function startCall() {
+            try {
+                document.getElementById("startBtn").disabled = true;
+
+                // ✅ Join the channel
+                const uid = await client.join(APP_ID, CHANNEL_NAME, TOKEN, null);
+
+                // ✅ Request Camera & Mic Permissions
+                [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+
+                // ✅ Check if camera is available
+                if (!localTracks.videoTrack) {
+                    alert("Camera access denied! Please allow camera permission.");
+                    return;
+                }
+
+                // ✅ Play local video
+                localTracks.videoTrack.play("local-video");
+
+                // ✅ Publish tracks (send video & audio to remote users)
+                await client.publish([localTracks.audioTrack, localTracks.videoTrack]);
+                console.log("Local stream published.");
+
+                // ✅ Handle remote users joining
+                client.on("user-published", async (user, mediaType) => {
+                    await client.subscribe(user, mediaType);
+
+                    if (mediaType === "video") {
+                        const remoteVideoTrack = user.videoTrack;
+                        const remoteContainer = document.createElement("div");
+                        remoteContainer.id = `remote-user-${user.uid}`;
+                        remoteContainer.style.width = "400px";
+                        remoteContainer.style.height = "300px";
+                        remoteContainer.style.background = "gray";
+                        document.getElementById("remote-video-container").appendChild(remoteContainer);
+                        
+                        remoteVideoTrack.play(remoteContainer);
+                    }
+
+                    if (mediaType === "audio") {
+                        const remoteAudioTrack = user.audioTrack;
+                        remoteAudioTrack.play();
+                    }
+                });
+
+                // ✅ Handle remote users leaving
+                client.on("user-unpublished", (user) => {
+                    console.log("Remote user left:", user.uid);
+                    const remoteContainer = document.getElementById(`remote-user-${user.uid}`);
+                    if (remoteContainer) {
+                        remoteContainer.remove();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error: " + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
