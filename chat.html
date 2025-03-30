@@ -11,7 +11,7 @@
 
     <div>
         <h3>Your Video</h3>
-        <div id="local-video" style="width: 300px; height: 200px; background: black;"></div>
+        <video id="local-video" autoplay playsinline muted style="width: 300px; height: 200px; background: black;"></video>
     </div>
 
     <div>
@@ -44,8 +44,9 @@
                 // ✅ Request Camera & Mic Permissions
                 [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
 
-                // ✅ Play Local Video
-                localTracks.videoTrack.play("local-video");
+                // ✅ Play Local Video in <video> tag
+                const localVideoElement = document.getElementById("local-video");
+                localVideoElement.srcObject = new MediaStream([localTracks.videoTrack.getMediaStreamTrack()]);
 
                 // ✅ Publish to Channel
                 await client.publish([localTracks.audioTrack, localTracks.videoTrack]);
@@ -83,12 +84,14 @@
                 remoteUsers[user.uid] = user;
 
                 // ✅ Create Video Element
-                const remoteContainer = document.createElement("div");
+                const remoteContainer = document.createElement("video");
                 remoteContainer.id = `remote-user-${user.uid}`;
                 remoteContainer.style.width = "300px";
                 remoteContainer.style.height = "200px";
-                remoteContainer.style.background = "gray";
                 remoteContainer.style.margin = "10px";
+                remoteContainer.autoplay = true;
+                remoteContainer.playsInline = true;
+
                 document.getElementById("remote-video-container").appendChild(remoteContainer);
 
                 // ✅ Play Remote Video
