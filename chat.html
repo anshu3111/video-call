@@ -34,59 +34,54 @@
             try {
                 document.getElementById("startBtn").disabled = true;
                 const uid = await client.join(APP_ID, CHANNEL_NAME, TOKEN, null);
-                
                 [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+
                 if (!localTracks.videoTrack) {
                     alert("Camera access denied! Please allow camera permission.");
                     return;
                 }
-                
+
                 localTracks.videoTrack.play("local-video");
                 await client.publish([localTracks.audioTrack, localTracks.videoTrack]);
                 console.log("Local stream published.");
-                
-                client.on("user-published", handleUserPublished);
-                client.on("user-unpublished", handleUserUnpublished);
-                
-                // Fetch already joined users and show their videos
-                const users = client.remoteUsers;
-                users.forEach(user => handleUserPublished(user, "video"));
+
+                client.on("user-published", async (user, mediaType) => {
+                    await client.subscribe(user, mediaType);
+
+                    if (mediaType === "video") {
+                        const remoteVideoTrack = user.videoTrack;
+                        const remoteContainer = document.createElement("div");
+                        remoteContainer.id = `remote-user-${user.uid}`;
+                        remoteContainer.style.width = "400px";
+                        remoteContainer.style.height = "300px";
+                        remoteContainer.style.background = "gray";
+                        document.getElementById("remote-video-container").appendChild(remoteContainer);
+                        remoteVideoTrack.play(remoteContainer);
+                    }
+
+                    if (mediaType === "audio") {
+                        user.audioTrack.play();
+                    }
+                });
+
+                client.on("user-unpublished", (user) => {
+                    console.log("Remote user left:", user.uid);
+                    const remoteContainer = document.getElementById(`remote-user-${user.uid}`);
+                    if (remoteContainer) {
+                        remoteContainer.remove();
+                    }
+                });
+
+                client.on("user-joined", (user) => {
+                    console.log("User joined:", user.uid);
+                });
+
+                client.on("user-left", (user) => {
+                    console.log("User left:", user.uid);
+                });
             } catch (error) {
                 console.error("Error:", error);
                 alert("Error: " + error.message);
-            }
-        }
-
-        async function handleUserPublished(user, mediaType) {
-            await client.subscribe(user, mediaType);
-            
-            if (mediaType === "video") {
-                const remoteVideoTrack = user.videoTrack;
-                let remoteContainer = document.getElementById(`remote-user-${user.uid}`);
-                
-                if (!remoteContainer) {
-                    remoteContainer = document.createElement("div");
-                    remoteContainer.id = `remote-user-${user.uid}`;
-                    remoteContainer.style.width = "400px";
-                    remoteContainer.style.height = "300px";
-                    remoteContainer.style.background = "gray";
-                    document.getElementById("remote-video-container").appendChild(remoteContainer);
-                }
-                
-                remoteVideoTrack.play(remoteContainer);
-            }
-            
-            if (mediaType === "audio") {
-                const remoteAudioTrack = user.audioTrack;
-                remoteAudioTrack.play();
-            }
-        }
-
-        function handleUserUnpublished(user) {
-            console.log("Remote user left:", user.uid);
-            const remoteContainer = document.getElementById(`remote-user-${user.uid}`);
-            if (remoteContainer) {
-                remoteContainer.remove();
             }
         }
     </script>
