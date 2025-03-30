@@ -44,7 +44,7 @@
                 localTracks.videoTrack.play("local-video");
                 await client.publish([localTracks.audioTrack, localTracks.videoTrack]);
                 console.log("Local stream published.");
-                
+
                 client.on("user-published", async (user, mediaType) => {
                     await client.subscribe(user, mediaType);
                     if (mediaType === "video") {
@@ -57,8 +57,11 @@
 
                 client.on("user-joined", async (user) => {
                     console.log("User joined:", user.uid);
-                    await client.subscribe(user, "video");
-                    addRemoteUser(user);
+                    if (!remoteUsers[user.uid]) {
+                        remoteUsers[user.uid] = user;
+                        await client.subscribe(user, "video");
+                        addRemoteUser(user);
+                    }
                 });
 
                 client.on("user-unpublished", (user) => {
@@ -68,6 +71,13 @@
                 client.on("user-left", (user) => {
                     removeRemoteUser(user);
                 });
+
+                // Fetch and display existing users' video for newly joined user
+                for (const uid in remoteUsers) {
+                    if (remoteUsers[uid].videoTrack) {
+                        addRemoteUser(remoteUsers[uid]);
+                    }
+                }
             } catch (error) {
                 console.error("Error:", error);
                 alert("Error: " + error.message);
@@ -93,6 +103,7 @@
             if (remoteContainer) {
                 remoteContainer.remove();
             }
+            delete remoteUsers[user.uid];
         }
     </script>
 </body>
