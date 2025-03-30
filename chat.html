@@ -59,9 +59,9 @@
                     console.log("User joined:", user.uid);
                     remoteUsers[user.uid] = user;
 
-                    // Subscribe and display existing remote users' videos
+                    // 🔥 **Fix: Naye user ke liye existing users ka video show karna**
                     for (const uid in remoteUsers) {
-                        if (!document.getElementById(`remote-user-${uid}`)) {
+                        if (uid != user.uid) { // Apna video dobara subscribe nahi karna
                             await client.subscribe(remoteUsers[uid], "video");
                             addRemoteUser(remoteUsers[uid]);
                         }
@@ -75,6 +75,17 @@
                 client.on("user-left", (user) => {
                     removeRemoteUser(user);
                 });
+
+                // 🔥 **Fix: Jab naye user aaye to pehle se connected users ka video dikhao**
+                let users = await client.remoteUsers;
+                users.forEach(async (user) => {
+                    if (!remoteUsers[user.uid]) {
+                        remoteUsers[user.uid] = user;
+                        await client.subscribe(user, "video");
+                        addRemoteUser(user);
+                    }
+                });
+
             } catch (error) {
                 console.error("Error:", error);
                 alert("Error: " + error.message);
